@@ -5,77 +5,14 @@
 | Componente | Descrição |
 |------------|-----------|
 | **Servidor Gerente** | Ubuntu (VirtualBox) com **Zabbix + Grafana** |
-| **IP do Gerente** | `192.168.1.121` |
-| **Servidor Agente** | Ubuntu Server (**kaua**) |
-| **IP do Agente** | `192.168.1.120` |
-| **Protocolo de Coleta** | SNMPv1 |
+| **Servidores Agentes** | SW-01, SW-02, SW-03 e RT-01 |
+| **IP dos Agentes** | `10.10.20.110`, `10.10.20.111`, `10.10.20.112`, `10.10.20.100` |
+| **Protocolo de Coleta** | SNMPv2 |
 | **Community** | `public` |
 
 ---
 
-# Fase 1: Configuração do Agente SNMP
-**Máquina:** `kaua (192.168.1.120)`
-
-O objetivo desta fase é configurar o servidor alvo para escutar requisições SNMP na porta **UDP 161** e permitir leitura completa utilizando a comunidade **public**.
-
-## 1. Instalar o daemon do SNMP
-
-```bash
-sudo apt update
-sudo apt install snmpd -y
-```
-
----
-
-## 2. Configurar o arquivo de escuta e segurança
-
-Abra o arquivo de configuração:
-
-```bash
-sudo nano /etc/snmp/snmpd.conf
-```
-
-### Liberar escuta na rede
-
-Comente a linha de loopback local e adicione a escuta global:
-
-```text
-#agentaddress 127.0.0.1,[::1]
-agentaddress udp:161
-```
-
-### Definir a comunidade de leitura
-
-Localize a configuração da comunidade `public` e remova a diretiva `-V systemonly`, permitindo acesso a todas as métricas (CPU, memória, rede etc.):
-
-```text
-rocommunity public default
-```
-
-> **Observação de segurança:** Em ambiente de produção, substitua `default` pelo IP do servidor gerente (`192.168.1.121`).
-
----
-
-## 3. Reiniciar e habilitar o serviço
-
-```bash
-sudo systemctl restart snmpd
-sudo systemctl enable snmpd
-```
-
----
-
-## 4. Testar localmente (Opcional)
-
-```bash
-snmpwalk -v 1 -c public 127.0.0.1 sysName
-```
-
----
-
-# Fase 2: Instalação e Configuração do Gerente
-**Servidor Zabbix:** `192.168.1.121`
-
+# Fase 1: Instalação e Configuração do Gerente
 Esta fase prepara o banco de dados MySQL, instala o servidor Zabbix e realiza sua configuração.
 
 ---
@@ -196,14 +133,14 @@ sudo systemctl enable zabbix-server zabbix-agent apache2
 
 ---
 
-# Fase 3: Configuração Web e Cadastro do Host
+# Fase 2: Configuração Web e Cadastro do Host
 
 ## 1. Finalizar a instalação via navegador
 
 Acesse:
 
 ```
-http://192.168.1.121/zabbix
+localhost/zabbix
 ```
 
 Durante o assistente:
@@ -245,9 +182,9 @@ Configure:
 
 | Campo | Valor |
 |-------|-------|
-| Host name | `kaua` |
-| Template | Linux by SNMP (ou Generic by SNMP) |
-| Host Group | Linux servers |
+| Host name | `SW-01` |
+| Template | Cisco IOS by SNMP |
+| Host Group | Switch |
 
 ---
 
@@ -263,8 +200,8 @@ Configure:
 
 | Campo | Valor |
 |--------|--------|
-| IP | `192.168.1.120` |
-| SNMP Version | SNMPv1 |
+| IP | `10.10.20.110` |
+| SNMP Version | SNMPv2 |
 | Community | `public` |
 
 Clique em **Add** para salvar.
@@ -288,7 +225,7 @@ Monitoring → Latest Data
 Em **Hosts**, selecione:
 
 ```
-kaua
+SW-01
 ```
 
 Clique em **Apply** para visualizar as métricas coletadas.
@@ -327,7 +264,7 @@ sudo systemctl enable grafana-server
 Acesse:
 
 ```
-http://192.168.1.121:3000
+localhost:3000
 ```
 
 Login padrão:
@@ -405,52 +342,11 @@ Uma mensagem verde deverá confirmar que a conexão foi estabelecida.
 
 ---
 
-## 4. Criar um Dashboard
-
-Acesse:
-
-```
-Dashboards
-    └── New Dashboard
-```
-
-Clique no botão:
-
-```
-+ Add Visualization
-```
-
-Selecione o **Data Source Zabbix**.
-
-Na consulta (**Query A**) configure:
-
-| Campo | Valor |
-|--------|--------|
-| Group | Linux servers |
-| Host | kaua |
-| Item | CPU utilization, Available memory ou Interfaces de Rede |
-
----
-
-## 5. Ajustar período de visualização
-
-No canto superior direito altere o intervalo para:
-
-- Last 5 minutes
-
-ou
-
-- Last 15 minutes
-
-Assim será possível visualizar as primeiras coletas e acompanhar a geração dos gráficos em tempo real.
-
----
-
 # Resultado Esperado
 
 Ao final deste procedimento você terá:
 
-- ✅ SNMPv1 configurado no servidor Ubuntu (`kaua`);
+- ✅ SNMPv2 configurado no servidor Ubuntu;
 - ✅ Zabbix Server monitorando o host via SNMP;
 - ✅ Banco MySQL configurado e integrado ao Zabbix;
 - ✅ Interface Web do Zabbix funcional;
